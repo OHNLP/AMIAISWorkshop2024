@@ -1,0 +1,83 @@
+{
+  "id" : "Clinical Information Extraction Demo",
+  "description" : "demo_ie",
+  "pipeline" : [ {
+    "lang" : "JAVA",
+    "componentID" : "Read Information From SQL",
+    "inputs" : { },
+    "config" : {
+      "url" : "jdbc:postgresql://wa319309-001.ca.clouddb.ovh.net:35684/ohnlptk_demo",
+      "driver" : "org.postgresql.Driver",
+      "user" : "ohnlptk_demo",
+      "password" : "OHNLPTKdemo1",
+      "query" : "SELECT note_id, note_text FROM public.note",
+      "batch_size" : 1000,
+      "identifier_col" : "note_id",
+      "idle_timeout" : 0
+    },
+    "clazz" : "org.ohnlp.backbone.io.jdbc.JDBCExtract"
+  }, {
+    "lang" : "JAVA",
+    "componentID" : "Run IE",
+    "inputs" : {
+      "*" : {
+        "componentID" : "Read Information From SQL",
+        "inputTag" : "JDBC Results"
+      }
+    },
+    "config" : {
+      "input" : {
+        "sourceColumnName" : "note_text",
+        "sourceTag" : "*"
+      },
+      "mode" : "STANDALONE_IE_ONLY",
+      "ruleset" : "dyspnea",
+      "identifier_col" : {
+        "sourceColumnName" : "note_id",
+        "sourceTag" : "*"
+      },
+      "ruleset_context" : "DEFAULT",
+      "sectag" : "DEFAULT"
+    },
+    "clazz" : "org.ohnlp.medtagger.backbone.MedTaggerBackboneTransform"
+  }, {
+    "lang" : "JAVA",
+    "componentID" : "Write to CSV",
+    "inputs" : {
+      "*" : {
+        "componentID" : "Run IE",
+        "inputTag" : "MedTaggerBackboneTransform"
+      }
+    },
+    "config" : {
+      "fileSystemPath" : "./out",
+      "writeHeader" : true,
+      "fields" : [ {
+        "sourceColumnName" : "note_id",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "concept_code",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "matched_sentence",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "matched_text",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "offset",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "certainty",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "experiencer",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "offset",
+        "sourceTag" : "*"
+      } ]
+    },
+    "clazz" : "org.ohnlp.backbone.io.local.CSVLoad"
+  } ]
+}
