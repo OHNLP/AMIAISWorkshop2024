@@ -1,0 +1,114 @@
+{
+  "id" : "nlp_filesystem_to_csv",
+  "description" : "A pipeline configuration that extracts clinical narratives from filesystem, runs a MedTagger NLP rulesets, and outputs back to OHDSI CDM as CSV.",
+  "pipeline" : [ {
+    "lang" : "JAVA",
+    "componentID" : "Read from Filesystem",
+    "inputs" : { },
+    "config" : {
+      "url" : "jdbc:postgresql://wa319309-001.ca.clouddb.ovh.net:35684/ohnlptk_demo",
+      "driver" : "org.postgresql.Driver",
+      "user" : "--",
+      "password" : "OHNLPTKdemo1",
+      "query" : "SELECT note_id, note_text FROM public.note",
+      "batch_size" : 1000,
+      "identifier_col" : "note_id",
+      "idle_timeout" : 0
+    },
+    "clazz" : "org.ohnlp.backbone.io.jdbc.JDBCExtract"
+  }, {
+    "lang" : "PYTHON",
+    "componentID" : "Identify PII Entities",
+    "inputs" : {
+      "Documents with PII" : {
+        "componentID" : "Read from Filesystem",
+        "inputTag" : "Filesystem Records"
+      }
+    },
+    "config" : {
+      "id_col" : {
+        "sourceColumnName" : "note_id",
+        "sourceTag" : "Documents with PII"
+      },
+      "text_col" : {
+        "sourceColumnName" : "note_text",
+        "sourceTag" : "Documents with PII"
+      },
+      "ner_model_path" : "obi/deid_roberta_i2b2",
+      "acceptance_threshold" : 0.35
+    },
+    "bundleName" : "PresidioDeidentificationforOHNLPTK",
+    "entryPoint" : "presidio_deid",
+    "entryClass" : "IdentifyPIIComponentDefinition"
+  }, {
+    "lang" : "JAVA",
+    "componentID" : "Write PII Entities",
+    "inputs" : {
+      "*" : {
+        "componentID" : "Identify PII Entities",
+        "inputTag" : "PII Positions"
+      }
+    },
+    "config" : {
+      "fileSystemPath" : "../test_out/pii_entities",
+      "writeHeader" : true,
+      "fields" : [ {
+        "sourceColumnName" : "note_id",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "entity_type",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "start_offset",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "end_offset",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "confidence_score",
+        "sourceTag" : "*"
+      } ]
+    },
+    "clazz" : "org.ohnlp.backbone.io.local.CSVLoad"
+  }, {
+    "lang" : "PYTHON",
+    "componentID" : "pii_synthesis",
+    "inputs" : {
+      "Tagged De-Identified Text" : {
+        "componentID" : "Identify PII Entities",
+        "inputTag" : "Text w/ PII Redacted"
+      }
+    },
+    "config" : {
+      "text_col" : {
+        "sourceColumnName" : "note_text",
+        "sourceTag" : "Tagged De-Identified Text"
+      },
+      "synthesizer_config_file" : "synthesizer_config.json"
+    },
+    "bundleName" : "PresidioDeidentificationforOHNLPTK",
+    "entryPoint" : "presidio_deid",
+    "entryClass" : "SynthesizePIIReplacementComponentDefinition"
+  }, {
+    "lang" : "JAVA",
+    "componentID" : "Write Synthesized Text",
+    "inputs" : {
+      "*" : {
+        "componentID" : "pii_synthesis",
+        "inputTag" : "Synthesized Text"
+      }
+    },
+    "config" : {
+      "fileSystemPath" : "../test_out/synthetic_text",
+      "writeHeader" : true,
+      "fields" : [ {
+        "sourceColumnName" : "note_id",
+        "sourceTag" : "*"
+      }, {
+        "sourceColumnName" : "note_text",
+        "sourceTag" : "*"
+      } ]
+    },
+    "clazz" : "org.ohnlp.backbone.io.local.CSVLoad"
+  } ]
+}
