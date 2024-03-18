@@ -8,7 +8,7 @@
     "config" : {
       "url" : "jdbc:postgresql://wa319309-001.ca.clouddb.ovh.net:35684/ohnlptk_demo",
       "driver" : "org.postgresql.Driver",
-      "user" : "ohnlptk_demo",
+      "user" : "--",
       "password" : "OHNLPTKdemo1",
       "query" : "SELECT note_id, note_text FROM public.note",
       "batch_size" : 1000,
